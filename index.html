@@ -1,0 +1,1273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jelly Watermelon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Figtree:wght@400;600;700&display=swap">
+<style>
+  /* Layout: full-bleed 3D stage, title + wobble meter float top, candy buttons float bottom. */
+  :root {
+    color-scheme: light;
+    --sky: #e9e6ff;
+    --ink: #1d3a2b;
+    --ink-soft: #4d6357;
+    --melon: #ff4766;
+    --melon-deep: #d92a4b;
+    --rind: #2f7d48;
+    --paper: #ffffff;
+    --glass: rgba(255, 255, 255, 0.64);
+    --font-display: "Bagel Fat One", "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+    --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--sky);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { position: fixed; inset: 0; }
+  #scene {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    outline: none;
+  }
+  .hud-top {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px 0;
+    pointer-events: none;
+  }
+  .brand { min-width: 0; }
+  h1 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(32px, 6.4vw, 56px);
+    line-height: 0.92;
+    letter-spacing: 0.01em;
+    color: var(--melon);
+    text-wrap: balance;
+    text-shadow: 0 2px 0 var(--paper), 0 8px 22px rgba(217, 42, 75, 0.2);
+  }
+  h1 span { color: var(--rind); }
+  .tag {
+    margin: 10px 0 0;
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    max-width: 28ch;
+  }
+  .meter {
+    display: grid;
+    justify-items: end;
+    gap: 4px;
+    padding: 10px 14px 11px;
+    border-radius: 16px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+  .meter-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .meter-value { font-size: 22px; font-weight: 700; line-height: 1.1; }
+  .meter-value small { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .meter-bar {
+    width: 96px; height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: rgba(47, 125, 72, 0.16);
+  }
+  .meter-bar i {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--rind), var(--melon));
+  }
+  .meter-best { font-size: 12px; color: var(--ink-soft); }
+  .hud-bottom {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 18px);
+    pointer-events: none;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    pointer-events: auto;
+  }
+  button {
+    font: 700 15px/1 var(--font-body);
+    padding: 13px 20px;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 0 -3px 0 rgba(29, 58, 43, 0.08) inset, 0 6px 16px rgba(70, 60, 160, 0.16);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.2s ease;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:active { transform: translateY(1px) scale(0.97); }
+  button:focus-visible { outline: 3px solid var(--rind); outline-offset: 3px; }
+  button.primary {
+    background: var(--melon);
+    color: var(--paper);
+    box-shadow: 0 -3px 0 rgba(120, 0, 30, 0.18) inset, 0 8px 20px rgba(217, 42, 75, 0.34);
+  }
+  button.primary:hover { background: var(--melon-deep); }
+  button:disabled { opacity: 0.5; cursor: default; transform: none; }
+  .hint {
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+  .loader {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding-inline: 24px;
+    text-align: center;
+    font-family: var(--font-display);
+    font-size: 22px;
+    color: var(--melon);
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  .loader.gone { opacity: 0; }
+  @media (max-width: 520px) {
+    .hud-top { padding-inline: 16px; }
+    .tag { font-size: 14px; }
+    .meter { padding: 8px 12px 9px; }
+    .meter-value { font-size: 19px; }
+    .meter-bar { width: 72px; }
+    button { padding: 12px 16px; font-size: 14px; }
+    .hint { font-size: 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    button, .loader { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="scene" tabindex="0" aria-label="A wobbly watermelon jelly on a cutting board. Click to poke it, drag it to stretch it, press S to slice it."></canvas>
+
+  <header class="hud-top">
+    <div class="brand">
+      <h1><span>Jelly</span> Watermelon</h1>
+      <p class="tag">Poke it, pull it, slice it open.</p>
+    </div>
+    <div class="meter" role="status" aria-live="off">
+      <span class="meter-label">Wobble</span>
+      <span class="meter-value"><b id="wobble">0.0</b> <small>cm</small></span>
+      <span class="meter-bar"><i id="wobbleBar"></i></span>
+      <span class="meter-best">Best <b id="best">0.0</b> cm</span>
+    </div>
+  </header>
+
+  <div id="loader" class="loader">Setting the jelly…</div>
+
+  <footer class="hud-bottom">
+    <div class="controls">
+      <button id="slice" class="primary" type="button">Slice it</button>
+      <button id="drop" type="button">Drop again</button>
+      <button id="sound" type="button" aria-pressed="true">Sound on</button>
+    </div>
+    <p class="hint">Tap to poke · Drag the jelly to stretch it · Drag around it to turn the board</p>
+  </footer>
+</div>
+
+<script>
+  window.__jellyTimer = setTimeout(function () {
+    var l = document.getElementById('loader');
+    if (l && !window.__jellyReady) l.textContent = 'The 3D engine did not load. Check your connection and reload the page.';
+  }, 15000);
+</script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+// ---------------------------------------------------------------------------
+// Dimensions. The melon is an ellipsoid: radius B across, half-length A along z.
+// One scene unit is 12 cm, so the whole melon is 24 cm wide and ~29 cm long.
+// ---------------------------------------------------------------------------
+const B = 1;
+const A = 1.2;
+const CM_PER_UNIT = 12;
+const LAYER = { rind: 1.0, white: 0.94, wall: 0.866, flesh: 0.86 };
+const RIPPLES = 6;
+const STEP = 1 / 240;
+
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = (id) => document.getElementById(id);
+const clamp = THREE.MathUtils.clamp;
+const lerp = THREE.MathUtils.lerp;
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const easeInCubic = (t) => t * t * t;
+const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeInOutSine = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
+const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function showError(message) {
+  window.__jellyReady = true;
+  const l = $('loader');
+  l.textContent = message;
+  l.classList.remove('gone');
+}
+
+// ---------------------------------------------------------------------------
+// Renderer, scene, camera
+// ---------------------------------------------------------------------------
+const canvas = $('scene');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+} catch (err) {
+  showError('This browser could not start WebGL, so the jelly cannot be drawn.');
+  throw err;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene = new THREE.Scene();
+scene.background = gradientTexture(['#aebcff', '#cdd3ff', '#efebff']);
+scene.fog = new THREE.Fog(0xefebff, 16, 38);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.85;
+
+const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+const target = new THREE.Vector3(0, 0.62, 0);
+camera.position.set(6.2, 4.6, 6.4).normalize().multiplyScalar(10.6).add(target);
+
+const controls = new OrbitControls(camera, canvas);
+controls.target.copy(target);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.enablePan = false;
+controls.minPolarAngle = 0.2;
+controls.maxPolarAngle = 1.36;
+controls.autoRotate = !reduceMotion;
+controls.autoRotateSpeed = 0.55;
+
+const key = new THREE.DirectionalLight(0xfff2e2, 1.7);
+key.position.set(-4, 7, 5);
+const rim = new THREE.DirectionalLight(0xffb8c8, 0.9);
+rim.position.set(5, 3, -6);
+const hemi = new THREE.HemisphereLight(0xe2e6ff, 0xe8d6c4, 0.45);
+scene.add(key, rim, hemi);
+
+// ---------------------------------------------------------------------------
+// Procedural textures
+// ---------------------------------------------------------------------------
+function gradientTexture(stops) {
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 512;
+  const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 512);
+  stops.forEach((s, i) => gr.addColorStop(i / (stops.length - 1), s));
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 4, 512);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// Rind: wavy dark stripes running pole to pole. u wraps half the melon, v runs end to end.
+function rindTexture() {
+  const W = 1024, H = 512, N = 8;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  const img = ctx.createImageData(W, H);
+  const d = img.data;
+  const rnd = mulberry32(11);
+  const stripes = Array.from({ length: N }, () => [rnd() * 6.28, rnd() * 6.28, 0.85 + rnd() * 0.3]);
+  const light = [176, 226, 128], mid = [112, 184, 92], dark = [24, 104, 50];
+  for (let y = 0; y < H; y++) {
+    const v = y / (H - 1);
+    for (let x = 0; x < W; x++) {
+      const u = x / (W - 1);
+      const k = Math.min(N - 1, Math.floor(u * N));
+      const [p1, p2, wk] = stripes[k];
+      const center = (k + 0.5) / N + 0.011 * Math.sin(v * Math.PI * 6 + p1) + 0.006 * Math.sin(v * Math.PI * 17 + p2);
+      const halfW = (0.032 + 0.007 * Math.sin(v * Math.PI * 9 + p2)) * wk + 0.005 * Math.sin(v * Math.PI * 64 + p1 * 3);
+      const dist = Math.abs(u - center);
+      const core = 1 - sstep(halfW - 0.004, halfW + 0.004, dist);
+      const fringe = 1 - sstep(halfW, halfW + 0.03, dist);
+      const mottle = 0.93 + 0.07 * Math.sin(x * 0.09 + Math.sin(y * 0.05) * 3) * Math.sin(y * 0.13 + Math.sin(x * 0.031) * 2);
+      const i = (y * W + x) * 4;
+      for (let ch = 0; ch < 3; ch++) {
+        let col = light[ch] + (mid[ch] - light[ch]) * fringe * 0.55;
+        col += (dark[ch] - col) * core;
+        d[i + ch] = col * mottle;
+      }
+      d[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
+
+function woodTexture() {
+  const W = 1024, H = 512;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  const img = ctx.createImageData(W, H);
+  const d = img.data;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const gx = x / W, gy = y / H;
+      const warp = Math.sin(gx * 9 + Math.sin(gy * 7) * 1.2) * 0.035 + Math.sin(gx * 31 + gy * 5) * 0.006;
+      const ring = 0.5 + 0.5 * Math.sin((gy + warp) * 96);
+      const ring2 = 0.5 + 0.5 * Math.sin((gy + warp * 1.7) * 47 + 1.3);
+      const line = Math.pow(ring, 18) * 0.22;
+      const tone = 0.88 + 0.07 * ring2 - line;
+      const i = (y * W + x) * 4;
+      d[i] = 222 * tone; d[i + 1] = 168 * tone; d[i + 2] = 112 * tone; d[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
+
+function ginghamTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#f5f3ff';
+  g.fillRect(0, 0, 256, 256);
+  g.fillStyle = 'rgba(118, 128, 236, 0.17)';
+  for (let i = 0; i < 4; i++) {
+    g.fillRect(i * 64, 0, 32, 256);
+    g.fillRect(0, i * 64, 256, 32);
+  }
+  g.fillStyle = 'rgba(80, 90, 200, 0.035)';
+  for (let i = 0; i < 256; i += 4) { g.fillRect(i, 0, 1, 256); g.fillRect(0, i, 256, 1); }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(26, 26);
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
+
+function blobTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(0.45, 'rgba(255,255,255,0.55)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+
+// ---------------------------------------------------------------------------
+// Jelly deformation. Every melon mesh shares one displacement field per half,
+// evaluated in world space so rind, flesh and seeds all wobble together:
+//   squash & stretch about the contact point, a sway that bends the top,
+//   and short-lived ripples where the jelly was poked.
+// ---------------------------------------------------------------------------
+const timeU = { value: 0 };
+
+const JELLY_GLSL = /* glsl */`
+uniform float uTime;
+uniform vec3 uBase;
+uniform float uHeight;
+uniform float uSquash;
+uniform vec2 uSway;
+uniform vec4 uRipA[${RIPPLES}];
+uniform vec4 uRipB[${RIPPLES}];
+
+vec3 jellyDisp(vec3 p) {
+  vec3 q = p - uBase;
+  float h = clamp(q.y / uHeight, 0.0, 1.5);
+  float pin = smoothstep(0.0, 0.2, h);
+  vec3 d = vec3(0.0);
+  d.y += q.y * uSquash;
+  d.xz -= q.xz * (0.5 * uSquash) * pin;
+  d.xz += uSway * h * h;
+  d.y -= dot(uSway, uSway) * h * h * 0.45 / uHeight;
+  for (int i = 0; i < ${RIPPLES}; i++) {
+    float age = uTime - uRipA[i].w;
+    if (age < 0.0 || age > 2.4) continue;
+    float dist = length(p - uRipA[i].xyz);
+    float env = exp(-age * 3.2) * exp(-dist * dist * 2.2) * (1.0 - exp(-age * 45.0));
+    float wave = cos(age * 24.0 - dist * 6.0);
+    d += uRipB[i].xyz * (uRipB[i].w * env * wave * pin);
+  }
+  return d;
+}
+`;
+
+function jellify(material, body) {
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, body.uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\n' + JELLY_GLSL)
+      .replace('#include <beginnormal_vertex>', /* glsl */`#include <beginnormal_vertex>
+      {
+        mat3 jm = mat3(modelMatrix);
+        vec3 jp = (modelMatrix * vec4(position, 1.0)).xyz;
+        vec3 jn = normalize(jm * objectNormal);
+        vec3 jr = abs(jn.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+        vec3 jt = normalize(cross(jn, jr));
+        vec3 jb = cross(jn, jt);
+        const float je = 0.015;
+        vec3 j0 = jellyDisp(jp);
+        vec3 j1 = jt * je + jellyDisp(jp + jt * je);
+        vec3 j2 = jb * je + jellyDisp(jp + jb * je);
+        objectNormal = transpose(jm) * normalize(cross(j1 - j0, j2 - j0));
+      }`)
+      .replace('#include <begin_vertex>', /* glsl */`#include <begin_vertex>
+      transformed += transpose(mat3(modelMatrix)) * jellyDisp((modelMatrix * vec4(position, 1.0)).xyz);`);
+  };
+  material.customProgramCacheKey = () => 'jelly-1';
+  return material;
+}
+
+// A damped spring system per half: squash (vertical) and sway (horizontal x/z).
+class Body {
+  constructor() {
+    this.s = 0; this.sv = 0;
+    this.w = new THREE.Vector2(); this.wv = new THREE.Vector2();
+    this.grab = null;            // { sway: Vector2, squash: number } while held
+    this.inertia = new THREE.Vector2();
+    this.ri = 0;
+    this.uniforms = {
+      uTime: timeU,
+      uBase: { value: new THREE.Vector3() },
+      uHeight: { value: 2 * B },
+      uSquash: { value: 0 },
+      uSway: { value: new THREE.Vector2() },
+      uRipA: { value: Array.from({ length: RIPPLES }, () => new THREE.Vector4(0, 0, 0, -99)) },
+      uRipB: { value: Array.from({ length: RIPPLES }, () => new THREE.Vector4()) },
+    };
+  }
+  get height() { return this.uniforms.uHeight.value; }
+  get base() { return this.uniforms.uBase.value; }
+  step(dt) {
+    let as = -170 * this.s - 3.0 * this.sv;
+    let ax = -92 * this.w.x - 2.4 * this.wv.x - this.inertia.x * 0.3;
+    let az = -92 * this.w.y - 2.4 * this.wv.y - this.inertia.y * 0.3;
+    if (this.grab) {
+      as += 520 * (this.grab.squash - this.s) - 28 * this.sv;
+      ax += 480 * (this.grab.sway.x - this.w.x) - 26 * this.wv.x;
+      az += 480 * (this.grab.sway.y - this.w.y) - 26 * this.wv.y;
+    }
+    this.sv += as * dt; this.s += this.sv * dt;
+    this.wv.x += ax * dt; this.wv.y += az * dt;
+    this.w.x += this.wv.x * dt; this.w.y += this.wv.y * dt;
+    if (this.s < -0.42) { this.s = -0.42; this.sv *= -0.3; }
+    if (this.s > 0.55) { this.s = 0.55; this.sv *= -0.3; }
+    const maxW = 0.6 * this.height;
+    if (this.w.length() > maxW) { this.w.setLength(maxW); this.wv.multiplyScalar(0.5); }
+  }
+  ripple(point, dir, amp) {
+    this.uniforms.uRipA.value[this.ri].set(point.x, point.y, point.z, timeU.value);
+    this.uniforms.uRipB.value[this.ri].set(dir.x, dir.y, dir.z, amp);
+    this.ri = (this.ri + 1) % RIPPLES;
+  }
+  copyMotion(o) {
+    this.s = o.s; this.sv = o.sv; this.w.copy(o.w); this.wv.copy(o.wv);
+  }
+  reset() {
+    this.s = this.sv = 0; this.w.set(0, 0); this.wv.set(0, 0); this.grab = null;
+    for (const r of this.uniforms.uRipA.value) r.w = -99;
+  }
+  sync() {
+    this.uniforms.uSquash.value = this.s;
+    this.uniforms.uSway.value.copy(this.w);
+  }
+  amplitude() {
+    return Math.hypot(this.w.x, this.w.y, this.s * this.height);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Geometry: one half of the melon (x >= 0), cut face on the x = 0 plane.
+// The left half reuses it, turned 180 degrees about y.
+// ---------------------------------------------------------------------------
+function finalize(pos, nor, uv, idx) {
+  // Make every triangle's winding agree with its vertex normals.
+  for (let t = 0; t < idx.length; t += 3) {
+    const a = idx[t] * 3, b = idx[t + 1] * 3, c = idx[t + 2] * 3;
+    const e1x = pos[b] - pos[a], e1y = pos[b + 1] - pos[a + 1], e1z = pos[b + 2] - pos[a + 2];
+    const e2x = pos[c] - pos[a], e2y = pos[c + 1] - pos[a + 1], e2z = pos[c + 2] - pos[a + 2];
+    const nx = e1y * e2z - e1z * e2y, ny = e1z * e2x - e1x * e2z, nz = e1x * e2y - e1y * e2x;
+    if (nx * nx + ny * ny + nz * nz < 1e-14) continue;
+    const vx = nor[a] + nor[b] + nor[c], vy = nor[a + 1] + nor[b + 1] + nor[c + 1], vz = nor[a + 2] + nor[b + 2] + nor[c + 2];
+    if (nx * vx + ny * vy + nz * vz < 0) { const tmp = idx[t + 1]; idx[t + 1] = idx[t + 2]; idx[t + 2] = tmp; }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeBoundingSphere();
+  return g;
+}
+
+function gridIndex(rows, cols, idx) {
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      const a = i * (cols + 1) + j, b = a + cols + 1;
+      idx.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+  }
+}
+
+// Curved half-ellipsoid surface at scale s. Poles sit at z = ±A·s.
+function shellGeometry(s, inward = false) {
+  const segT = 96, segP = 72;
+  const pos = [], nor = [], uv = [], idx = [];
+  const n = new THREE.Vector3();
+  for (let i = 0; i <= segT; i++) {
+    const th = (i / segT) * Math.PI;
+    for (let j = 0; j <= segP; j++) {
+      const ph = -Math.PI / 2 + (j / segP) * Math.PI;
+      const x = s * B * Math.sin(th) * Math.cos(ph);
+      const y = s * B * Math.sin(th) * Math.sin(ph);
+      const z = s * A * Math.cos(th);
+      pos.push(x, y, z);
+      if (i === 0 || i === segT) n.set(0, 0, Math.sign(z));
+      else n.set(x / (B * B), y / (B * B), z / (A * A)).normalize();
+      if (inward) n.negate();
+      nor.push(n.x, n.y, n.z);
+      uv.push(j / segP, 1 - i / segT);
+    }
+  }
+  gridIndex(segT, segP, idx);
+  return finalize(pos, nor, uv, idx);
+}
+
+// Flat ring (or disk when s0 = 0) on the cut plane, facing -x.
+function capGeometry(s0, s1) {
+  const segR = Math.max(2, Math.round((s1 - s0) * 24)), segA = 160;
+  const pos = [], nor = [], uv = [], idx = [];
+  for (let r = 0; r <= segR; r++) {
+    const s = s0 + ((s1 - s0) * r) / segR;
+    for (let k = 0; k <= segA; k++) {
+      const psi = (k / segA) * Math.PI * 2;
+      pos.push(0, s * B * Math.sin(psi), s * A * Math.cos(psi));
+      nor.push(-1, 0, 0);
+      uv.push(k / segA, r / segR);
+    }
+  }
+  gridIndex(segR, segA, idx);
+  return finalize(pos, nor, uv, idx);
+}
+
+// Teardrop seeds suspended in the red jelly, in two oval rings like a real melon.
+function seedsGeometry() {
+  const base = new THREE.SphereGeometry(1, 16, 12);
+  const p = base.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i);
+    const f = 0.55 + 0.45 * Math.pow((y + 1) / 2, 0.6);
+    p.setXYZ(i, p.getX(i) * f, y, p.getZ(i) * f);
+  }
+  base.computeVertexNormals();
+
+  const rnd = mulberry32(7);
+  const F = LAYER.flesh;
+  const parts = [];
+  const m = new THREE.Matrix4();
+  const X = new THREE.Vector3(), Y = new THREE.Vector3(), Z = new THREE.Vector3();
+  for (const ring of [{ rho: 0.63, n: 14, off: 0.1 }, { rho: 0.4, n: 8, off: 0.5 }]) {
+    for (let k = 0; k < ring.n; k++) {
+      const psi = ((k + ring.off + rnd() * 0.35) / ring.n) * Math.PI * 2;
+      const rho = ring.rho * (0.92 + rnd() * 0.16);
+      const y = rho * F * B * Math.sin(psi);
+      const z = rho * F * A * Math.cos(psi);
+      let x = 0.06 + rnd() * 0.3;
+      const inside = (xx) => (xx / (F * B)) ** 2 + (y / (F * B)) ** 2 + (z / (F * A)) ** 2;
+      while (inside(x) > 0.8 && x > 0.05) x *= 0.7;
+      const tilt = (rnd() - 0.5) * 0.5;
+      Y.set(0, Math.sin(psi + tilt) * B, Math.cos(psi + tilt) * A).normalize();
+      Z.set(1, (rnd() - 0.5) * 0.4, (rnd() - 0.5) * 0.4).normalize();
+      X.crossVectors(Y, Z).normalize();
+      Z.crossVectors(X, Y);
+      const sc = 0.85 + rnd() * 0.3;
+      m.makeBasis(X, Y, Z).scale(new THREE.Vector3(0.046 * sc, 0.078 * sc, 0.021 * sc)).setPosition(x, y, z);
+      parts.push(base.clone().applyMatrix4(m));
+    }
+  }
+  return mergeGeometries(parts);
+}
+
+const GEO = {
+  rind: shellGeometry(LAYER.rind),
+  rindCap: capGeometry(LAYER.white, LAYER.rind),
+  white: shellGeometry(LAYER.white),
+  whiteCap: capGeometry(LAYER.flesh, LAYER.white),
+  wall: shellGeometry(LAYER.wall, true),
+  flesh: shellGeometry(LAYER.flesh),
+  fleshCap: capGeometry(0, LAYER.flesh),
+  seeds: seedsGeometry(),
+};
+// The flesh is one closed solid so transmission sees it as a volume.
+GEO.fleshSolid = mergeGeometries([GEO.flesh, GEO.fleshCap]);
+
+const rindMap = rindTexture();
+
+function makeMaterials(body) {
+  const mats = {
+    rind: new THREE.MeshPhysicalMaterial({
+      map: rindMap, transmission: 0.5, thickness: 0.12, ior: 1.34,
+      roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.06,
+      attenuationColor: new THREE.Color(0x58c26a), attenuationDistance: 0.3,
+      sheen: 0.25, sheenColor: new THREE.Color(0xdcffd2), sheenRoughness: 0.5,
+    }),
+    rindCap: new THREE.MeshPhysicalMaterial({ color: 0x2f8a4a, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.08 }),
+    white: new THREE.MeshPhysicalMaterial({
+      color: 0xeef8d8, roughness: 0.3, clearcoat: 0.8, clearcoatRoughness: 0.12,
+      sheen: 0.4, sheenColor: new THREE.Color(0xffffff),
+    }),
+    wall: new THREE.MeshStandardMaterial({ color: 0xffc8d0, roughness: 0.5 }),
+    flesh: new THREE.MeshPhysicalMaterial({
+      color: 0xff8c9c, transmission: 1, thickness: 0.4, ior: 1.36,
+      roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.03, specularIntensity: 1,
+      attenuationColor: new THREE.Color(0xff6a80), attenuationDistance: 0.55,
+    }),
+    seed: new THREE.MeshPhysicalMaterial({ color: 0x24130f, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.12 }),
+  };
+  for (const k in mats) jellify(mats[k], body);
+  return mats;
+}
+
+// ---------------------------------------------------------------------------
+// Stage: cutting board on a gingham tablecloth
+// ---------------------------------------------------------------------------
+const BOARD_TOP = 0;
+const BOARD_DEPTH = 0.22, BOARD_BEVEL = 0.04;
+{
+  const w = 5.9, h = 3.7, r = 0.34;
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2 + r, -h / 2);
+  s.lineTo(w / 2 - r, -h / 2); s.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r);
+  s.lineTo(w / 2, h / 2 - r); s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2);
+  s.lineTo(-w / 2 + r, h / 2); s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r);
+  s.lineTo(-w / 2, -h / 2 + r); s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
+  const geo = new THREE.ExtrudeGeometry(s, {
+    depth: BOARD_DEPTH, bevelEnabled: true, bevelThickness: BOARD_BEVEL, bevelSize: BOARD_BEVEL,
+    bevelSegments: 4, curveSegments: 12,
+  });
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, BOARD_TOP - BOARD_DEPTH - BOARD_BEVEL, 0);
+  const wood = woodTexture();
+  wood.wrapS = wood.wrapT = THREE.RepeatWrapping;
+  wood.repeat.set(1 / (w + 0.2), 1 / (h + 0.2));
+  wood.offset.set(0.5, 0.5);
+  const board = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({
+    map: wood, roughness: 0.55, clearcoat: 0.3, clearcoatRoughness: 0.4,
+  }));
+  scene.add(board);
+
+  const table = new THREE.Mesh(
+    new THREE.CircleGeometry(44, 72),
+    new THREE.MeshStandardMaterial({ map: ginghamTexture(), roughness: 0.92 }),
+  );
+  table.rotation.x = -Math.PI / 2;
+  table.position.y = BOARD_TOP - BOARD_DEPTH - 2 * BOARD_BEVEL;
+  scene.add(table);
+}
+
+// ---------------------------------------------------------------------------
+// Chef's knife (only shown while slicing)
+// ---------------------------------------------------------------------------
+function makeKnife() {
+  const g = new THREE.Group();
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  s.lineTo(2.7, 0);
+  s.quadraticCurveTo(3.12, 0.03, 3.25, 0.42);
+  s.quadraticCurveTo(2.6, 0.66, 0, 0.7);
+  s.lineTo(0, 0);
+  const blade = new THREE.ExtrudeGeometry(s, {
+    depth: 0.022, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.008, bevelSegments: 2, curveSegments: 24,
+  });
+  blade.translate(0, 0, -0.011);
+  const steel = new THREE.MeshStandardMaterial({ color: 0xe9edf2, metalness: 1, roughness: 0.16 });
+  g.add(new THREE.Mesh(blade, steel));
+  const handle = new THREE.Mesh(new RoundedBoxGeometry(1.25, 0.36, 0.13, 4, 0.06),
+    new THREE.MeshStandardMaterial({ color: 0x24324a, roughness: 0.42 }));
+  handle.position.set(-0.68, 0.46, 0);
+  g.add(handle);
+  const bolster = new THREE.Mesh(new RoundedBoxGeometry(0.1, 0.42, 0.1, 2, 0.03), steel);
+  bolster.position.set(-0.03, 0.46, 0);
+  g.add(bolster);
+  const rivetGeo = new THREE.CylinderGeometry(0.032, 0.032, 0.15, 16);
+  rivetGeo.rotateX(Math.PI / 2);
+  for (const x of [-1.05, -0.68, -0.31]) {
+    const rv = new THREE.Mesh(rivetGeo, steel);
+    rv.position.set(x, 0.46, 0);
+    g.add(rv);
+  }
+  g.rotation.y = -Math.PI / 2;   // blade length runs along +z, flat of the blade on the cut plane
+  g.position.z = -1.7;           // heel behind the melon, tip past the front end
+  const knife = new THREE.Group();
+  knife.add(g);
+  knife.visible = false;
+  return knife;
+}
+const knife = makeKnife();
+scene.add(knife);
+
+// ---------------------------------------------------------------------------
+// The melon: two halves, each its own jelly body. Joined, they move as one.
+// ---------------------------------------------------------------------------
+const blobTex = blobTexture();
+const blobGeo = new THREE.PlaneGeometry(1, 1);
+blobGeo.rotateX(-Math.PI / 2);
+
+const pickables = [];
+const halves = [1, -1].map((side) => {
+  const body = new Body();
+  const mats = makeMaterials(body);
+  const pivot = new THREE.Group();
+  const inner = new THREE.Group();
+  inner.rotation.y = side > 0 ? 0 : Math.PI;
+  pivot.add(inner);
+  const parts = [
+    [GEO.rind, mats.rind, true],
+    [GEO.rindCap, mats.rindCap, true],
+    [GEO.white, mats.white, false],
+    [GEO.whiteCap, mats.white, true],
+    [GEO.wall, mats.wall, false],
+    [GEO.fleshSolid, mats.flesh, true],
+    [GEO.seeds, mats.seed, false],
+  ];
+  const half = { side, body, pivot, alpha: 0, alphaV: 0, joinFrom: 0, crossed: false, prevX: 0, prevV: 0 };
+  for (const [geo, mat, pick] of parts) {
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.frustumCulled = false; // vertices move in the shader
+    mesh.userData.half = half;
+    inner.add(mesh);
+    if (pick) pickables.push(mesh);
+  }
+  scene.add(pivot);
+
+  half.shadow = new THREE.Mesh(blobGeo, new THREE.MeshBasicMaterial({
+    map: blobTex, color: 0x2b2160, transparent: true, opacity: 0.4, depthWrite: false, fog: false,
+  }));
+  half.glow = new THREE.Mesh(blobGeo, new THREE.MeshBasicMaterial({
+    map: blobTex, color: 0xff6d8c, transparent: true, opacity: 0.1, depthWrite: false,
+    blending: THREE.AdditiveBlending, fog: false,
+  }));
+  half.shadow.position.y = BOARD_TOP + 0.004;
+  half.glow.position.y = BOARD_TOP + 0.006;
+  half.shadow.renderOrder = 1;
+  half.glow.renderOrder = 2;
+  scene.add(half.shadow, half.glow);
+  return half;
+});
+
+// ---------------------------------------------------------------------------
+// Sound: tiny synthesized boings and squelches (start after the first tap)
+// ---------------------------------------------------------------------------
+let audioCtx = null;
+let soundOn = true;
+let gestured = false; // browsers only allow audio after the visitor interacts
+for (const type of ['pointerdown', 'keydown']) window.addEventListener(type, () => { gestured = true; }, { capture: true, once: true });
+try { soundOn = localStorage.getItem('jelly-sound') !== 'off'; } catch (e) { /* storage unavailable */ }
+
+function audio() {
+  if (!soundOn || !gestured) return null;
+  if (!audioCtx) {
+    const C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return null;
+    audioCtx = new C();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function boing(pitch = 1, vol = 1) {
+  const a = audio();
+  if (!a) return;
+  const t = a.currentTime;
+  const o = a.createOscillator(), g = a.createGain();
+  const lfo = a.createOscillator(), lg = a.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(320 * pitch, t);
+  o.frequency.exponentialRampToValueAtTime(140 * pitch, t + 0.38);
+  lfo.frequency.value = 15;
+  lg.gain.value = 16 * pitch;
+  lfo.connect(lg).connect(o.frequency);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.2 * clamp(vol, 0.05, 1), t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+  o.connect(g).connect(a.destination);
+  o.start(t); lfo.start(t);
+  o.stop(t + 0.5); lfo.stop(t + 0.5);
+}
+
+function squelch() {
+  const a = audio();
+  if (!a) return;
+  const t = a.currentTime, len = 0.4;
+  const buf = a.createBuffer(1, Math.floor(a.sampleRate * len), a.sampleRate);
+  const ch = buf.getChannelData(0);
+  for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / ch.length);
+  const src = a.createBufferSource();
+  src.buffer = buf;
+  const f = a.createBiquadFilter();
+  f.type = 'bandpass'; f.Q.value = 3;
+  f.frequency.setValueAtTime(1600, t);
+  f.frequency.exponentialRampToValueAtTime(260, t + len);
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  src.connect(f).connect(g).connect(a.destination);
+  src.start(t);
+}
+
+// ---------------------------------------------------------------------------
+// Scene state
+// ---------------------------------------------------------------------------
+const S = {
+  joined: true,      // halves move as one melon
+  gap: 0,            // half the width of the knife slit
+  gapFrom: 0,
+  dropY: reduceMotion ? 0 : 3.4,
+  dropV: 0,
+  knifeT: -1,        // slicing timeline, -1 when idle
+  cut: false,
+  joinT: -1,         // re-joining timeline, -1 when idle
+};
+const K_APPROACH = 0.32, K_CUT = 0.8, K_LIFT = 1.4, JOIN_TIME = 0.9;
+const sliceBtn = $('slice'), dropBtn = $('drop'), soundBtn = $('sound');
+
+function busy() {
+  return S.knifeT >= 0 || S.joinT >= 0 || S.dropY > 0 || S.dropV !== 0;
+}
+
+function updateButtons() {
+  sliceBtn.textContent = S.joined ? 'Slice it' : 'Put it back';
+  sliceBtn.disabled = busy();
+  soundBtn.textContent = soundOn ? 'Sound on' : 'Sound off';
+  soundBtn.setAttribute('aria-pressed', String(soundOn));
+}
+
+function jointBodies(hitHalf) {
+  return S.joined ? halves.map((h) => h.body) : [hitHalf.body];
+}
+
+function startCut() {
+  if (!S.joined || busy()) return;
+  S.knifeT = 0;
+  S.cut = false;
+  knife.visible = true;
+  knife.position.y = 4.8;
+  updateButtons();
+}
+
+function doCut() {
+  S.cut = true;
+  S.joined = false;
+  for (const h of halves) {
+    h.alpha = 0.001;
+    h.alphaV = 1.0;
+    h.crossed = false;
+    h.body.grab = null;
+    h.body.sv += 0.9;
+    h.body.ripple(new THREE.Vector3(0, 2 * B, 0), new THREE.Vector3(0, -1, 0), 0.05);
+  }
+  squelch();
+}
+
+function startJoin() {
+  if (S.joined || busy()) return;
+  S.joinT = 0;
+  S.gapFrom = S.gap;
+  for (const h of halves) { h.joinFrom = h.alpha; h.alphaV = 0; h.body.grab = null; }
+  updateButtons();
+}
+
+function finishJoin() {
+  S.joinT = -1;
+  S.joined = true;
+  S.gap = 0;
+  const [r, l] = halves.map((h) => h.body);
+  r.s = (r.s + l.s) / 2; r.sv = (r.sv + l.sv) / 2;
+  r.w.add(l.w).multiplyScalar(0.5); r.wv.add(l.wv).multiplyScalar(0.5);
+  r.sv -= 1.4;
+  r.wv.y += (Math.random() - 0.5) * 0.8;
+  l.copyMotion(r);
+  for (const h of halves) {
+    h.alpha = 0; h.alphaV = 0;
+    h.body.ripple(new THREE.Vector3(0, 2 * B, 0), new THREE.Vector3(0, -1, 0), 0.04);
+  }
+  boing(0.8, 0.8);
+  updateButtons();
+}
+
+function dropAgain() {
+  S.knifeT = -1; S.joinT = -1; S.cut = false;
+  knife.visible = false;
+  S.joined = true;
+  S.gap = 0;
+  S.dropY = 3.4;
+  S.dropV = 0;
+  for (const h of halves) { h.alpha = 0; h.alphaV = 0; h.prevX = 0; h.prevV = 0; h.body.reset(); }
+  updateButtons();
+}
+
+function landed(speed) {
+  for (const h of halves) {
+    h.body.sv -= speed * 0.3;
+    h.body.wv.x += (Math.random() - 0.5) * speed * 0.06;
+    h.body.wv.y += (Math.random() - 0.5) * speed * 0.06;
+  }
+  halves[1].body.copyMotion(halves[0].body);
+  boing(0.62, speed / 9);
+}
+
+sliceBtn.addEventListener('click', () => { audio(); S.joined ? startCut() : startJoin(); });
+dropBtn.addEventListener('click', () => { audio(); dropAgain(); });
+soundBtn.addEventListener('click', () => {
+  soundOn = !soundOn;
+  try { localStorage.setItem('jelly-sound', soundOn ? 'on' : 'off'); } catch (e) { /* storage unavailable */ }
+  if (soundOn) boing(1.2, 0.5);
+  updateButtons();
+});
+
+// ---------------------------------------------------------------------------
+// Poke and pull
+// ---------------------------------------------------------------------------
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+let grab = null;
+
+function setRay(e) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+}
+
+function pick(e) {
+  setRay(e);
+  const hit = raycaster.intersectObjects(pickables, false)[0];
+  return hit || null;
+}
+
+function poke(bodies, half, point, normal, strength = 1) {
+  const inward = normal.clone().negate();
+  for (const b of bodies) {
+    const hh = clamp((point.y - b.base.y) / b.height, 0.15, 1);
+    b.wv.x += inward.x * 2.6 * strength * hh;
+    b.wv.y += inward.z * 2.6 * strength * hh;
+    b.sv += (inward.y * 2.2 - 0.35) * strength;
+    b.ripple(point, inward, 0.09 * strength);
+  }
+  if (!S.joined && S.joinT < 0) half.alphaV += half.side * inward.x * 0.9 * strength;
+  boing(0.9 + Math.random() * 0.35, 0.8 * strength);
+}
+
+function stopAutoRotate() { controls.autoRotate = false; }
+
+// Capture on the wrapper so this runs before OrbitControls sees the event.
+$('app').addEventListener('pointerdown', (e) => {
+  if (e.target !== canvas) return;
+  stopAutoRotate();
+  const hit = pick(e);
+  if (!hit) return;
+  audio();
+  const half = hit.object.userData.half;
+  const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+  const bodies = jointBodies(half);
+  poke(bodies, half, hit.point, normal, 0.8);
+  const facing = new THREE.Vector3();
+  camera.getWorldDirection(facing).negate();
+  grab = {
+    id: e.pointerId, half, bodies, point: hit.point.clone(),
+    plane: new THREE.Plane().setFromNormalAndCoplanarPoint(facing, hit.point),
+    sx: e.clientX, sy: e.clientY, moved: false,
+  };
+  controls.enabled = false;
+  canvas.setPointerCapture(e.pointerId);
+  canvas.style.cursor = 'grabbing';
+}, true);
+
+const tmpP = new THREE.Vector3();
+canvas.addEventListener('pointermove', (e) => {
+  if (!grab) {
+    if (e.pointerType === 'mouse' && e.buttons === 0) canvas.style.cursor = pick(e) ? 'grab' : '';
+    return;
+  }
+  if (e.pointerId !== grab.id) return;
+  if (!grab.moved && Math.hypot(e.clientX - grab.sx, e.clientY - grab.sy) > 6) grab.moved = true;
+  if (!grab.moved) return;
+  setRay(e);
+  if (!raycaster.ray.intersectPlane(grab.plane, tmpP)) return;
+  const delta = tmpP.sub(grab.point);
+  for (const b of grab.bodies) {
+    const above = Math.max(grab.point.y - b.base.y, 0.4);
+    const hh = clamp(above / b.height, 0.3, 1);
+    const sway = new THREE.Vector2(delta.x, delta.z).multiplyScalar(0.8 / (hh * hh));
+    if (sway.length() > 0.6 * b.height) sway.setLength(0.6 * b.height);
+    b.grab = { sway, squash: clamp((delta.y * 0.8) / above, -0.35, 0.5) };
+  }
+});
+
+function release(e) {
+  if (!grab || e.pointerId !== grab.id) return;
+  if (grab.moved) {
+    const amp = Math.max(...grab.bodies.map((b) => b.amplitude()));
+    boing(1.25 - Math.min(amp, 0.8) * 0.5, 0.4 + amp);
+  }
+  for (const b of grab.bodies) b.grab = null;
+  if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+  grab = null;
+  controls.enabled = true;
+  canvas.style.cursor = '';
+}
+canvas.addEventListener('pointerup', release);
+canvas.addEventListener('pointercancel', release);
+
+window.addEventListener('keydown', (e) => {
+  if (e.target instanceof HTMLButtonElement || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 's') { audio(); S.joined ? startCut() : startJoin(); }
+  else if (k === 'd') { audio(); dropAgain(); }
+  else if (k === ' ' || k === 'enter') {
+    e.preventDefault();
+    audio();
+    stopAutoRotate();
+    for (const h of S.joined ? [halves[0]] : halves) {
+      const top = new THREE.Vector3(h.pivot.position.x, S.dropY + h.body.height, (Math.random() - 0.5) * 0.6);
+      const n = new THREE.Vector3((Math.random() - 0.5) * 0.8, 1, (Math.random() - 0.5) * 0.8).normalize();
+      poke(jointBodies(h), h, top, n, 1);
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Simulation
+// ---------------------------------------------------------------------------
+let simAcc = 0;
+
+function simulate(dt) {
+  timeU.value += dt;
+
+  // Falling onto the board.
+  if (S.dropY > 0 || S.dropV !== 0) {
+    S.dropV -= 22 * dt;
+    S.dropY += S.dropV * dt;
+    if (S.dropY <= 0) {
+      const speed = -S.dropV;
+      S.dropY = 0;
+      if (speed > 1.5) { landed(speed); S.dropV = speed * 0.18; }
+      else { S.dropV = 0; updateButtons(); }
+    }
+  }
+
+  // Knife timeline: approach, cut through, lift away.
+  if (S.knifeT >= 0) {
+    S.knifeT += dt;
+    const t = S.knifeT;
+    let y;
+    if (t < K_APPROACH) {
+      y = lerp(4.8, 2.08, easeOutCubic(t / K_APPROACH));
+    } else if (t < K_CUT) {
+      const p = (t - K_APPROACH) / (K_CUT - K_APPROACH);
+      y = lerp(2.08, 0.002, easeInOutSine(p));
+      S.gap = 0.021 * sstep(0, 0.6, p);
+      for (const h of halves) h.body.grab = { sway: new THREE.Vector2(), squash: -0.13 * Math.sin(Math.PI * p) };
+    } else {
+      if (!S.cut) doCut();
+      const p = Math.min((t - K_CUT) / (K_LIFT - K_CUT), 1);
+      y = lerp(0.002, 5.6, easeInCubic(p));
+      if (p >= 1) { S.knifeT = -1; knife.visible = false; updateButtons(); }
+    }
+    knife.position.y = y;
+  }
+
+  // Re-joining the halves.
+  if (S.joinT >= 0) {
+    S.joinT += dt;
+    const e = easeInOutCubic(Math.min(S.joinT / JOIN_TIME, 1));
+    for (const h of halves) h.alpha = h.joinFrom * (1 - e);
+    S.gap = S.gapFrom * (1 - e);
+    if (S.joinT >= JOIN_TIME) finishJoin();
+  }
+
+  // Split halves fall open and rock until they settle cut-side up.
+  if (!S.joined && S.joinT < 0) {
+    for (const h of halves) {
+      const acc = 26 * Math.cos(h.alpha) - 2.0 * h.alphaV;
+      h.alphaV += acc * dt;
+      h.alpha += h.alphaV * dt;
+      if (h.alpha < 0) { h.alpha = 0; h.alphaV = Math.abs(h.alphaV) * 0.3; }
+      if (h.alpha > Math.PI - 0.35) { h.alpha = Math.PI - 0.35; h.alphaV = -Math.abs(h.alphaV) * 0.3; }
+      if (!h.crossed && h.alpha > Math.PI / 2) {
+        h.crossed = true;
+        h.body.sv -= 0.9 * Math.abs(h.alphaV);
+        boing(0.72, 0.5);
+      }
+    }
+  }
+
+  // Place the halves. Rolling keeps the center at height B (the cross-section is a circle).
+  for (const h of halves) {
+    const x = h.side * (S.gap + B * h.alpha);
+    h.pivot.position.set(x, B + S.dropY, 0);
+    h.pivot.rotation.z = -h.side * h.alpha;
+    const v = (x - h.prevX) / Math.max(dt, 1e-4);
+    const a = clamp((v - h.prevV) / Math.max(dt, 1e-4), -40, 40);
+    h.prevX = x; h.prevV = v;
+    h.body.inertia.set(S.joined ? 0 : a, 0);
+    h.body.base.set(x, S.dropY, 0);
+    h.body.uniforms.uHeight.value = B * (1 + Math.abs(Math.cos(h.alpha)));
+  }
+
+  simAcc += dt;
+  while (simAcc >= STEP) {
+    for (const h of halves) h.body.step(STEP);
+    simAcc -= STEP;
+  }
+  if (S.joined) halves[1].body.copyMotion(halves[0].body);
+  for (const h of halves) h.body.sync();
+
+  // Soft contact shadows and a faint pink glow of light through the jelly.
+  for (const h of halves) {
+    const open = Math.sin(Math.min(h.alpha, Math.PI / 2));
+    const cx = h.pivot.position.x + h.side * 0.42 * B * Math.cos(h.alpha) + h.body.w.x * 0.3;
+    const spread = 1 - 0.6 * h.body.s;
+    const sx = lerp(1.45, 2.3, open) * spread, sz = 2 * A * 1.08 * spread;
+    const lift = 1 / (1 + S.dropY * 0.55);
+    h.shadow.position.x = cx;
+    h.shadow.position.z = h.body.w.y * 0.3;
+    h.shadow.scale.set(sx * (1.2 - 0.2 * lift), 1, sz * (1.2 - 0.2 * lift));
+    h.shadow.material.opacity = 0.42 * lift;
+    h.glow.position.set(cx - 0.18, h.glow.position.y, 0.12);
+    h.glow.scale.set(sx * 0.62, 1, sz * 0.62);
+    h.glow.material.opacity = (0.06 + 0.16 * open) * lift;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Wobble meter
+// ---------------------------------------------------------------------------
+const wobbleEl = $('wobble'), bestEl = $('best'), barEl = $('wobbleBar');
+let shownAmp = 0, best = 0, meterClock = 0;
+function updateMeter(dt) {
+  const cm = Math.max(...halves.map((h) => h.body.amplitude())) * CM_PER_UNIT;
+  shownAmp = Math.max(cm, shownAmp - dt * 6);
+  if (cm > best) best = cm;
+  meterClock += dt;
+  if (meterClock < 0.08) return;
+  meterClock = 0;
+  wobbleEl.textContent = shownAmp.toFixed(1);
+  bestEl.textContent = best.toFixed(1);
+  barEl.style.width = `${Math.min(shownAmp / 8, 1) * 100}%`;
+}
+
+// ---------------------------------------------------------------------------
+// Resize and render loop
+// ---------------------------------------------------------------------------
+function resize() {
+  const w = canvas.clientWidth || window.innerWidth;
+  const h = canvas.clientHeight || window.innerHeight;
+  renderer.setSize(w, h, false);
+  const aspect = w / h;
+  camera.aspect = aspect;
+  camera.updateProjectionMatrix();
+  const fit = 10.6 * Math.pow(clamp(1.3 / aspect, 1, 2.2), 0.75);
+  controls.minDistance = fit * 0.5;
+  controls.maxDistance = fit * 1.6;
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  camera.position.copy(controls.target).addScaledVector(dir, fit);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const clock = new THREE.Clock();
+let first = true;
+updateButtons();
+
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 1 / 20);
+  simulate(dt);
+  updateMeter(dt);
+  controls.update();
+  renderer.render(scene, camera);
+  if (first) {
+    first = false;
+    window.__jellyReady = true;
+    clearTimeout(window.__jellyTimer);
+    $('loader').classList.add('gone');
+  }
+});
+</script>
+</body>
+</html>
